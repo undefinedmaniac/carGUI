@@ -5,6 +5,11 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.Qt import *
 
+global fileBrowserOpen
+fileBrowserOpen = False
+global dialogBoxOpen
+dialogBoxOpen = False
+
 
 class CarGUI(QtGui.QMainWindow):
 
@@ -22,19 +27,16 @@ class CarGUI(QtGui.QMainWindow):
 
         self.flash = True
 
-        self.create_toolbar()
-        self.create_main_widget()
+        self.controlBar = ToolBar()
+        self.addToolBar(Qt.LeftToolBarArea, self.controlBar)
 
+        self.mainWidget = MainWidget(self)
         self.setCentralWidget(self.mainWidget)
 
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('CDE'))
 
         self.setFocusPolicy(Qt.NoFocus)
         self.show()
-
-        # Create VLC Media Player Instance
-        self.mediaInstance = vlc.Instance()
-        self.mediaPlayerObj = self.mediaInstance.media_player_new()
 
         # Start the periodic function
         timer = QTimer(self)
@@ -43,106 +45,35 @@ class CarGUI(QtGui.QMainWindow):
 
         #self.mediaPlayer(0, 0, "C:/Non-Synced Files/CarGUI/carGUI V1/Music/Boulevard of Broken Dreams by Green Day Lyrics.mp3")
 
-        self.create_dialog('Song Error', 'resources/ERRORICON.png')
-
     def periodic(self):
 
         # Update the clock
-        AMPM = time.strftime("%p")
+        ampm = time.strftime("%p")
         hour = time.strftime("%I")
         minute = time.strftime("%M")
         if hour[0] == '0':
             hour = hour[1]
         if self.flash == True:
-            value = '{}:{} {}'.format(hour, minute, AMPM)
+            value = '{}:{} {}'.format(hour, minute, ampm)
             self.flash = False
         else:
-            value = '{} {} {}'.format(hour, minute, AMPM)
+            value = '{} {} {}'.format(hour, minute, ampm)
             self.flash = True
-        self.osTimeClock.setText(value)
+        self.mainWidget.osTimeClock.setText(value)
 
-    def create_toolbar(self):
 
-        # Run functions for creating toolbar
-        self.create_toolbar_actions()
-        self.create_toolbar_widgets()
+class MainWidget(QtGui.QWidget):
 
-        self.controlBar = QToolBar()
+    def __init__(self, mainWindow):
 
-        # Add the widgets to the toolbar
-        self.addToolBar(Qt.LeftToolBarArea, self.controlBar)
-        self.controlBar.setIconSize(QtCore.QSize(80, 80))
-        self.controlBar.setMovable(False)
-        self.controlBar.addAction(self.nextSongAction)
-        self.controlBar.addAction(self.playPauseAction)
-        self.controlBar.addAction(self.previousSongAction)
-        self.controlBar.addWidget(self.layoutWidget)
+        QWidget.__init__(self)
 
-    def create_toolbar_actions(self):
+        self.create_main_widget(mainWindow)
 
-        # Create the action buttons on the toolbar
-        self.playPauseAction = QtGui.QAction(QtGui.QIcon(
-             'resources\PLAYICON.png'), '&Play selected media', self)
-        self.playPauseAction.setShortcut('Ctrl+P')
-        self.playPauseAction.triggered.connect(lambda: self.media_player(1))
-
-        self.nextSongAction = QtGui.QAction(QtGui.QIcon(
-             'resources\\SKIPICON.png'), '&Advance to the next song', self)
-        self.nextSongAction.setShortcut('Ctrl+M')
-        # self.nextSongAction.triggered.connect(self.test)
-
-        self.previousSongAction = QtGui.QAction(QtGui.QIcon(
-             'resources\\BACKWARDICON.png'), '&Revert to the previous song',
-             self)
-        self.previousSongAction.setShortcut('Ctrl+N')
-
-    def create_toolbar_widgets(self):
-
-        # Create toolbar pushbuttons & volume slider
-        buttons = ('resources\SHUFFLEICON.png', 'resources\REPEATICON.png',
-                   'resources\VOLUMEICON.png')
-
-        self.toolbarButtons = []
-
-        self.layoutGrid = QtGui.QGridLayout()
-
-        for i in range(3):
-            tb = QtGui.QPushButton(QtGui.QIcon(buttons[i]), None, self)
-            tb.setCheckable(True)
-            tb.setFocusPolicy(Qt.NoFocus)
-            if i == 0:
-                  self.layoutGrid.addWidget(tb, 1, 1)
-                  tb.setMinimumHeight(50)
-            elif i == 1:
-                  self.layoutGrid.addWidget(tb, 1, 2)
-                  tb.setMinimumHeight(50)
-            else:
-                self.layoutGrid.addWidget(tb, 2, 1, 2, 2)
-            self.toolbarButtons.append(tb)
-            
-        self.volumeSlider = QtGui.QSlider(QtCore.Qt.Vertical, self)
-        self.volumeSlider.setFocusPolicy(Qt.NoFocus)
-        self.volumeSlider.setStyleSheet("""
-        .QSlider:vertical {
-        min-width: 40px;
-        }
-        """)
-        self.volumeSlider.valueChanged.connect(self.volume_update)
-
-        self.volumeLabel = QtGui.QLabel('test')
-
-        # Add the widgets to the grid
-        self.layoutGrid.addWidget(self.volumeSlider, 4, 1)
-        self.layoutGrid.addWidget(self.volumeLabel, 4, 2)
-
-        self.layoutWidget = QtGui.QWidget()
-        self.layoutWidget.setLayout(self.layoutGrid)
-
-    def create_main_widget(self):
+    def create_main_widget(self, mainWindow):
 
         mainVBox = QtGui.QVBoxLayout()
         mainHBox = QtGui.QHBoxLayout()
-        self.mainWidget = QtGui.QWidget()
         centerLayout = QtGui.QGridLayout()
         menuLayout = QtGui.QGridLayout()
 
@@ -181,13 +112,13 @@ class CarGUI(QtGui.QMainWindow):
             sb = QtGui.QPushButton(QtGui.QIcon(buttons[i]), buttons2[i], self)
             sb.setIconSize(QtCore.QSize(50, 50))
             sb.setFocusPolicy(Qt.NoFocus)
-            centerLayout.addWidget(sb, i+1, 1)
+            centerLayout.addWidget(sb, i + 1, 1)
             if i <= 5:
                 sb.setCheckable(True)
                 sourceButtons.addButton(sb)
             self.rVButtons.append(sb)
 
-        self.rVButtons[6].clicked.connect(self.create_filebrowser)
+        self.rVButtons[6].clicked.connect(lambda: CreateFileBrowser(mainWindow))
 
         # Create the menu buttons
         buttons = ('Menu', 'Music', 'Video', 'Climate', 'Settings')
@@ -200,7 +131,7 @@ class CarGUI(QtGui.QMainWindow):
             rb.setCheckable(True)
             rb.setFocusPolicy(Qt.NoFocus)
             menubarButtons.addButton(rb)
-            menuLayout.addWidget(rb, 1, i+1)
+            menuLayout.addWidget(rb, 1, i + 1)
 
         # Build the layout and add it to the widget
 
@@ -213,84 +144,124 @@ class CarGUI(QtGui.QMainWindow):
         mainVBox.setAlignment(self.osTimeClock,
                               Qt.AlignCenter | Qt.AlignTop)
 
-        self.mainWidget.setLayout(mainVBox)
+        self.setLayout(mainVBox)
 
-    def create_dialog(self, text=None, image=None):
 
-        try:
+class ToolBar(QtGui.QToolBar):
 
-            if self.dialogBlocker:
-                
-                print('ERROR: Dialog box already on-screen!')
+    def __init__(self):
 
-        except(AttributeError):
+        QToolBar.__init__(self)
 
-            width = self.mainWidget.width()
-            height = self.mainWidget.height()
+        self.create_toolbar_actions()
+        self.create_toolbar_widgets()
+        self.create_toolbar()
 
-            self.dialogBlocker = QtGui.QWidget(self.mainWidget)
-            self.dialogBlocker.resize(width, height)
+    def create_toolbar(self):
 
-            dialogBox = QtGui.QWidget(self.dialogBlocker)
-            dialogBox.setGeometry(width/2-width*.125, height/2-height*.125,
-                                       width*.25, height*.25)
-            dialogBox.setAutoFillBackground(True)
+        # Run functions for creating toolbar
+        self.create_toolbar_actions()
+        self.create_toolbar_widgets()
 
-            palette = QtGui.QPalette()
-            palette.setColor(QtGui.QPalette.Background, QtCore.Qt.lightGray)
-            dialogBox.setPalette(palette)
+        # Add the widgets to the toolbar
+        self.setIconSize(QtCore.QSize(80, 80))
+        self.setMovable(False)
+        self.addAction(self.nextSongAction)
+        self.addAction(self.playPauseAction)
+        self.addAction(self.previousSongAction)
+        self.addWidget(self.layoutWidget)
 
-            dialogLayout = QtGui.QGridLayout()
+    def create_toolbar_actions(self):
 
-            exitIcon = QtGui.QPushButton(QtGui.QIcon('resources/EXITICON.png'), None)
-            exitIcon.clicked.connect(lambda: self.dialogBlocker.close())
+        # Create the action buttons on the toolbar
+        self.playPauseAction = QtGui.QAction(QtGui.QIcon(
+            'resources\PLAYICON.png'), '&Play selected media', self)
+        self.playPauseAction.setShortcut('Ctrl+P')
+        self.playPauseAction.triggered.connect(lambda: MediaPlayer.controlMedia(1))
 
-            errorFont = QtGui.QFont('impact', 12)
+        self.nextSongAction = QtGui.QAction(QtGui.QIcon(
+            'resources\\SKIPICON.png'), '&Advance to the next song', self)
+        self.nextSongAction.setShortcut('Ctrl+M')
+        # self.nextSongAction.triggered.connect(self.test)
 
-            self.dialogLabel = QtGui.QLabel(text)
-            self.dialogLabel.setFont(errorFont)
+        self.previousSongAction = QtGui.QAction(QtGui.QIcon(
+            'resources\\BACKWARDICON.png'), '&Revert to the previous song',
+            self)
+        self.previousSongAction.setShortcut('Ctrl+N')
 
-            self.dialogImage = QtGui.QLabel()
-            self.dialogImage.setPixmap(QtGui.QPixmap(image).scaled(50, 50, Qt.KeepAspectRatio))
+    def create_toolbar_widgets(self):
 
-            button = QtGui.QPushButton('OK')
-            button.setFont(errorFont)
-            button.clicked.connect(lambda: self.dialogBlocker.close())
+        # Create toolbar pushbuttons & volume slider
+        buttons = ('resources\SHUFFLEICON.png', 'resources\REPEATICON.png',
+                   'resources\VOLUMEICON.png')
 
-            dialogLayout.setColumnStretch(0, 1)
-            dialogLayout.setColumnStretch(2, 1)
-            dialogLayout.setRowStretch(2, 1)
-            dialogLayout.addWidget(exitIcon, 0, 2)
-            dialogLayout.addWidget(self.dialogImage, 1, 0)
-            dialogLayout.addWidget(self.dialogLabel, 1, 1)
-            dialogLayout.addWidget(button, 3 ,1)
-            dialogLayout.setAlignment(exitIcon, Qt.AlignRight | Qt.AlignTop)
-            dialogLayout.setAlignment(self.dialogImage, Qt.AlignCenter)
-            dialogLayout.setAlignment(self.dialogLabel, Qt.AlignCenter)
+        self.toolbarButtons = []
 
-            dialogBox.setLayout(dialogLayout)
-            self.dialogBlocker.show()
+        self.layoutGrid = QtGui.QGridLayout()
+
+        for i in range(3):
+            tb = QtGui.QPushButton(QtGui.QIcon(buttons[i]), None, self)
+            tb.setCheckable(True)
+            tb.setFocusPolicy(Qt.NoFocus)
+            if i == 0:
+                self.layoutGrid.addWidget(tb, 1, 1)
+                tb.setMinimumHeight(50)
+            elif i == 1:
+                self.layoutGrid.addWidget(tb, 1, 2)
+                tb.setMinimumHeight(50)
+            else:
+                self.layoutGrid.addWidget(tb, 2, 1, 2, 2)
+            self.toolbarButtons.append(tb)
+
+        self.volumeSlider = QtGui.QSlider(QtCore.Qt.Vertical, self)
+        self.volumeSlider.setFocusPolicy(Qt.NoFocus)
+        self.volumeSlider.setStyleSheet("""
+        .QSlider:vertical {
+        min-width: 40px;
+        }
+        """)
+        self.volumeSlider.valueChanged.connect(self.volume_update)
+
+        self.volumeLabel = QtGui.QLabel('test')
+
+        # Add the widgets to the grid
+        self.layoutGrid.addWidget(self.volumeSlider, 4, 1)
+        self.layoutGrid.addWidget(self.volumeLabel, 4, 2)
+
+        self.layoutWidget = QtGui.QWidget()
+        self.layoutWidget.setLayout(self.layoutGrid)
+
+    def volume_update(self):
+        newVolume = self.volumeSlider.value()
+        MediaPlayer.mediaPlayerObj.audio_set_volume(newVolume)
+
+
+class CreateFileBrowser(QtGui.QWidget):
+
+    def __init__(self, mainWindow):
+        super().__init__(mainWindow)
+        QWidget.__init__(mainWindow)
+
+        self.create_filebrowser()
 
     def create_filebrowser(self):
-        try:
 
-            if self.fileBlocker:
+        global fileBrowserOpen
+        if fileBrowserOpen:
 
-                print('ERROR: File browser already open!')
+            print('ERROR: File browser already open!')
 
-        except(AttributeError):
+        else:
 
-            width = self.mainWidget.width()
-            height = self.mainWidget.height()
+            print('I ran yay!')
 
-            self.fileBlocker = QtGui.QWidget(self.mainWidget)
-            self.fileBlocker.resize(width, height)
+            self.resize(1024, 600)
 
             palette = QtGui.QPalette()
             palette.setColor(QtGui.QPalette.Background, QtCore.Qt.lightGray)
 
-            fileBrowser = QtGui.QWidget(self.fileBlocker)
-            fileBrowser.setGeometry(width*.125, height*.125, width*.75, height*.75)
+            fileBrowser = QtGui.QWidget(self)
+            fileBrowser.setGeometry(128, 75, 768, 450)
             fileBrowser.setPalette(palette)
             fileBrowser.setAutoFillBackground(True)
 
@@ -302,13 +273,84 @@ class CarGUI(QtGui.QMainWindow):
 
             fileBrowser.setLayout(browserLayout)
 
-            self.fileBlocker.show()
+            fileBrowserOpen = True
+            self.show()
 
-    def volume_update(self):
-        newVolume = self.volumeSlider.value()
-        self.mediaPlayerObj.audio_set_volume(newVolume)
 
-    def media_player(self, mediaAction=0, mediaType=0, mediaLocation=None):
+class CreateDialog(QtGui.QWidget):
+
+    def __init__(self, mainWindow, text, image):
+        super().__init__(mainWindow)
+        QWidget.__init__(mainWindow)
+
+        self.create_dialog(text, image)
+
+    def create_dialog(self, text, image):
+
+            global dialogBoxOpen
+            if dialogBoxOpen:
+
+                print('ERROR: Dialog box already on-screen!')
+
+            else:
+
+                self.resize(1024, 600)
+
+                dialogBox = QtGui.QWidget(self)
+                dialogBox.setGeometry(384, 225, 256, 150)
+                dialogBox.setAutoFillBackground(True)
+
+                palette = QtGui.QPalette()
+                palette.setColor(QtGui.QPalette.Background, QtCore.Qt.lightGray)
+                dialogBox.setPalette(palette)
+
+                dialogLayout = QtGui.QGridLayout()
+
+                exitIcon = QtGui.QPushButton(QtGui.QIcon('resources/EXITICON.png'), None)
+                exitIcon.clicked.connect(self.close_dialog)
+
+                errorFont = QtGui.QFont('impact', 12)
+
+                self.dialogLabel = QtGui.QLabel(text)
+                self.dialogLabel.setFont(errorFont)
+
+                self.dialogImage = QtGui.QLabel()
+                self.dialogImage.setPixmap(QtGui.QPixmap(image).scaled(50, 50, Qt.KeepAspectRatio))
+
+                button = QtGui.QPushButton('OK')
+                button.setFont(errorFont)
+                button.clicked.connect(self.close_dialog)
+
+                dialogLayout.setColumnStretch(0, 1)
+                dialogLayout.setColumnStretch(2, 1)
+                dialogLayout.setRowStretch(2, 1)
+                dialogLayout.addWidget(exitIcon, 0, 2)
+                dialogLayout.addWidget(self.dialogImage, 1, 0)
+                dialogLayout.addWidget(self.dialogLabel, 1, 1)
+                dialogLayout.addWidget(button, 3, 1)
+                dialogLayout.setAlignment(exitIcon, Qt.AlignRight | Qt.AlignTop)
+                dialogLayout.setAlignment(self.dialogImage, Qt.AlignCenter)
+                dialogLayout.setAlignment(self.dialogLabel, Qt.AlignCenter)
+
+                dialogBox.setLayout(dialogLayout)
+                dialogBoxOpen = True
+                self.show()
+
+    def close_dialog(self):
+        global dialogBoxOpen
+        dialogBoxOpen = False
+        self.close()
+
+class MediaClass():
+
+    def __init__(self):
+
+        # Create VLC Media Player Instance
+        self.mediaInstance = vlc.Instance()
+        self.mediaPlayerObj = self.mediaInstance.media_player_new()
+
+    def controlMedia(self, mediaAction=0, mediaType=0, mediaLocation=None):
+
         # mediaActions      mediaType
         # 0 = PLAY          0 = FILE
         # 1 = PAUSE/RESUME  1 = CD
@@ -319,20 +361,20 @@ class CarGUI(QtGui.QMainWindow):
                 media = self.mediaInstance.media_new(mediaLocation)
                 self.mediaPlayerObj.set_media(media)
                 self.mediaPlayerObj.play()
-                self.playPauseAction.setIcon(QtGui.QIcon(
+                GUI.playPauseAction.setIcon(QtGui.QIcon(
                     'resources\\PAUSEICON.png'))
         if mediaAction == 1:
             self.mediaPlayerObj.pause()
             if self.mediaPlayerObj.is_playing():
-                self.playPauseAction.setIcon(QtGui.QIcon(
+                GUI.playPauseAction.setIcon(QtGui.QIcon(
                     'resources\\PLAYICON.png'))
             else:
-                self.playPauseAction.setIcon(QtGui.QIcon(
+                GUI.playPauseAction.setIcon(QtGui.QIcon(
                     'resources\\PAUSEICON.png'))
-            #self.update()
 
 app = QtGui.QApplication(sys.argv)
 GUI = CarGUI()
+MediaPlayer = MediaClass()
 sys.exit(app.exec_())
 
 ##        self.shuffleToggle = QtGui.QPushButton(QtGui.QIcon('resources\SHUFFLEICON.png'), None, self)
