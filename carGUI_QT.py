@@ -2,12 +2,14 @@ import sys
 import time
 import vlc
 import os
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-from PyQt4.Qt import *
+import random
+from PyQt5 import QtGui
+from PyQt5 import QtCore
+from PyQt5.Qt import *
+from PyQt5 import QtWidgets
 
 
-class CarGUI(QtGui.QMainWindow):
+class CarGUI(QMainWindow):
 
     def __init__(self):
 
@@ -16,22 +18,26 @@ class CarGUI(QtGui.QMainWindow):
         self.setMinimumSize(1024, 600)
         self.setMaximumSize(1024, 600)
         self.setWindowTitle('carGUI')
-        self.setWindowIcon(QtGui.QIcon('resources\Music_Icon.ico'))
+        self.setWindowIcon(QIcon('resources\Music_Icon.ico'))
 
-        palette = QtGui.QPalette()
-        palette.setColor(QtGui.QPalette.Background, QtCore.Qt.darkGray)
+        print(QStyleFactory.keys())
+
+        palette = QPalette()
+        palette.setColor(QPalette.Background, QtCore.Qt.darkGray)
 
         self.setPalette(palette)
 
         self.flash = True
 
-        self.controlBar = ToolBar()
-        self.addToolBar(Qt.LeftToolBarArea, self.controlBar)
-
         self.mainWidget = MainWidget()
         self.setCentralWidget(self.mainWidget)
 
-        QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('CDE'))
+        self.MediaPlayer = MediaClass(self)
+
+        self.controlBar = ToolBar(self)
+        self.addToolBar(Qt.LeftToolBarArea, self.controlBar)
+
+        QApplication.setStyle(QStyleFactory.create('Fusion'))
 
         self.setFocusPolicy(Qt.NoFocus)
         self.show()
@@ -42,7 +48,7 @@ class CarGUI(QtGui.QMainWindow):
         timer.start(500)
 
         self.popUpMGR = PopUps(self)
-        self.popUpMGR.open_popup(1, 'YOLO', 'resources/ERRORICON.png')
+        # self.popUpMGR.open_popup(1, 'YOLO', 'resources/ERRORICON.png')
 
     def periodic(self):
 
@@ -60,61 +66,94 @@ class CarGUI(QtGui.QMainWindow):
             self.flash = True
         self.mainWidget.osTimeClock.setText(value)
 
+        if self.MediaPlayer.advance_song:
 
-class MainWidget(QtGui.QWidget):
+            self.MediaPlayer.advance_song = False
+            self.MediaPlayer.play_next_song()
+
+
+class MainWidget(QWidget):
 
     def __init__(self):
 
         QWidget.__init__(self)
 
-        self.osTimeClock = QtGui.QLabel()
-        self.songList = QtGui.QTableWidget(0, 4)
+        self.osTimeClock = QLabel()
+        self.mediaList = QTableWidget(0, 4)
+        self.mediaList.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        scroller_props = QScrollerProperties()
+        scroller_props.setScrollMetric(
+            QScrollerProperties.MaximumVelocity, .15)
+        scroller_props.setScrollMetric(
+            QScrollerProperties.SnapTime, .05)
+        scroller_props.setScrollMetric(
+            QScrollerProperties.DragVelocitySmoothingFactor, .02)
+
+        test = QScroller.scroller(self.mediaList)
+
+        test.setScrollerProperties(scroller_props)
+
+        test.grabGesture(
+            self.mediaList, QScroller.LeftMouseButtonGesture
+        )
+        
         self.rVButtons = []
 
         self.create_main_widget()
 
     def create_main_widget(self):
 
-        main_v_box = QtGui.QVBoxLayout()
-        main_h_box = QtGui.QHBoxLayout()
-        center_layout = QtGui.QGridLayout()
-        menu_layout = QtGui.QGridLayout()
+        main_v_box = QVBoxLayout()
+        main_h_box = QHBoxLayout()
+        center_layout = QGridLayout()
+        menu_layout = QGridLayout()
 
         # Create the clock font and clock
-        clock_font = QtGui.QFont('Courier', 25, QtGui.QFont.Bold)
+        clock_font = QFont('Courier', 25, QFont.Bold)
 
         self.osTimeClock.setFont(clock_font)
 
         # Create the QTableWidget
-        headers = ('Title', 'Artist', 'Album', 'Year')
-        headerpos = (300, 200, 200, 81)
+        headers = ('Title', 'Artist', 'Album', 'Genre')
+        headerpos = (200, 150, 65)
 
-        self.songList.setFocusPolicy(Qt.NoFocus)
-        self.songList.setHorizontalHeaderLabels(headers)
+        self.mediaList.setFocusPolicy(Qt.NoFocus)
+        self.mediaList.setHorizontalHeaderLabels(headers)
 
         for i, sz in enumerate(headerpos):
-            self.songList.horizontalHeader().resizeSection(i, sz)
-        self.songList.horizontalHeader().setResizeMode(QHeaderView.Fixed)
-        self.songList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
-        self.songList.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+
+            self.mediaList.horizontalHeader().resizeSection(i+1, sz)
+        self.mediaList.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.mediaList.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.mediaList.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.mediaList.cellClicked.connect(self.play_media)
 
         # Create the center_layout and add the source buttons
         buttons = ('resources\\FILEICON', 'resources\\CDICON',
                    'resources\\USBICON', 'resources\\RADIOICON',
                    'resources\\AUXICON', 'resources\\BLUETOOTHICON',
-                   'resources\\FOLDERICON')
-        buttons2 = ('FILE', 'CD', 'USB', 'RADIO', 'AUX', 'BLUETOOTH', 'BROWSE')
+                   'resources\\FOLDERICON', 'resources\\LISTICON')
+        buttons2 = ('FILE', 'CD', 'USB', 'RADIO', 'AUX', 'BLUETOOTH', 'BROWSE', 'LIST')
 
-        source_buttons = QtGui.QButtonGroup(self)
+        source_buttons = QButtonGroup(self)
         source_buttons.setExclusive(True)
-        for i in range(7):
-            sb = QtGui.QPushButton(QtGui.QIcon(buttons[i]), buttons2[i], self)
+
+        for i in range(8):
+
+            sb = QPushButton(QIcon(buttons[i]), buttons2[i], self)
             sb.setIconSize(QtCore.QSize(50, 50))
             sb.setFocusPolicy(Qt.NoFocus)
             center_layout.addWidget(sb, i + 1, 1)
+            sb.setStyleSheet("""
+            text-align: left
+            """)
+
             if i <= 5:
+
                 sb.setCheckable(True)
                 source_buttons.addButton(sb)
+
             self.rVButtons.append(sb)
 
         self.rVButtons[6].clicked.connect(lambda: self.parent().popUpMGR.open_popup(0))
@@ -122,12 +161,17 @@ class MainWidget(QtGui.QWidget):
         # Create the menu buttons
         buttons = ('Menu', 'Music', 'Video', 'Climate', 'Settings')
 
-        menu_bar_buttons = QtGui.QButtonGroup(self)
+        menu_bar_buttons = QButtonGroup(self)
         menu_bar_buttons.setExclusive(True)
 
         for i in range(5):
-            rb = QtGui.QPushButton(buttons[i], self)
-            rb.setCheckable(True)
+
+            rb = QPushButton(buttons[i], self)
+
+            if i != 1:
+
+                rb.setCheckable(True)
+
             rb.setFocusPolicy(Qt.NoFocus)
             rb.setMinimumSize(100, 50)
             menu_bar_buttons.addButton(rb)
@@ -135,7 +179,7 @@ class MainWidget(QtGui.QWidget):
 
         # Build the layout and add it to the widget
 
-        main_h_box.addWidget(self.songList)
+        main_h_box.addWidget(self.mediaList)
         main_h_box.addLayout(center_layout)
 
         main_v_box.addWidget(self.osTimeClock)
@@ -145,13 +189,54 @@ class MainWidget(QtGui.QWidget):
                                 Qt.AlignCenter | Qt.AlignTop)
 
         self.setLayout(main_v_box)
+        self.load_music()
 
+    def play_media(self, row, column):
 
-class ToolBar(QtGui.QToolBar):
+        if not self.parent().controlBar.toolbarButtons[3].isChecked():
 
-    def __init__(self):
+            self.parent().MediaPlayer.media_queue.clear()
+
+        self.parent().MediaPlayer.control_media(0, 0, self.mediaList.item(row, 0).data(1))
+        self.parent().MediaPlayer.update_queue()
+
+    def load_music(self, path='music/'):
+
+        music_files = [f for f in os.listdir(path)
+                       if f.endswith(".mp3") or
+                       f.endswith(".wav") or
+                       f.endswith(".wma")]
+        
+        for i in music_files:
+            test = vlc.Instance()
+            media = test.media_new(os.path.join(path, i))
+            media.parse()
+
+            meta_1 = vlc.libvlc_media_get_meta(media, vlc.Meta(0))
+            meta_1 = meta_1.replace('.wav', '')
+            meta_1 = meta_1.replace('.mp3', '')
+            meta_1 = meta_1.replace('.wma', '')
+            music_item_1 = QTableWidgetItem(meta_1)
+            music_item_1.setData(1, os.path.join(path, i))
+            music_item_2 = QTableWidgetItem(vlc.libvlc_media_get_meta(media, vlc.Meta(1)))
+            music_item_3 = QTableWidgetItem(vlc.libvlc_media_get_meta(media, vlc.Meta(4)))
+            music_item_4 = QTableWidgetItem(vlc.libvlc_media_get_meta(media, vlc.Meta(2)))
+
+            current_row = self.mediaList.rowCount()
+            self.mediaList.insertRow(current_row)
+            self.mediaList.setItem(current_row, 0, music_item_1)
+            self.mediaList.setItem(current_row, 1, music_item_2)
+            self.mediaList.setItem(current_row, 2, music_item_3)
+            self.mediaList.setItem(current_row, 3, music_item_4)
+            
+
+class ToolBar(QToolBar):
+
+    def __init__(self, parent):
 
         QToolBar.__init__(self)
+
+        self.toolbar_parent = parent
 
         # Redefined later in create_toolbar_actions
         self.playPauseAction = None
@@ -161,10 +246,11 @@ class ToolBar(QtGui.QToolBar):
         self.create_toolbar_actions()
 
         self.toolbarButtons = []
-        self.layoutGrid = QtGui.QGridLayout()
-        self.volumeSlider = QtGui.QSlider(QtCore.Qt.Vertical, self)
-        self.volumeLabel = QtGui.QLabel('test')
-        self.layoutWidget = QtGui.QWidget()
+        self.layoutGrid = QGridLayout()
+        self.volumeSlider = QSlider(QtCore.Qt.Vertical, self)
+        self.volumeSlider.setMaximum(100)
+        self.volumeLabel = QLabel()
+        self.layoutWidget = QWidget()
 
         self.create_toolbar_widgets()
 
@@ -187,17 +273,17 @@ class ToolBar(QtGui.QToolBar):
     def create_toolbar_actions(self):
 
         # Create the action buttons on the toolbar
-        self.playPauseAction = QtGui.QAction(QtGui.QIcon(
+        self.playPauseAction = QAction(QIcon(
             'resources\PLAYICON.png'), '&Play selected media', self)
         self.playPauseAction.setShortcut('Ctrl+P')
-        self.playPauseAction.triggered.connect(lambda: MediaPlayer.control_media(1))
+        self.playPauseAction.triggered.connect(lambda: self.toolbar_parent.MediaPlayer.control_media(1))
 
-        self.nextSongAction = QtGui.QAction(QtGui.QIcon(
+        self.nextSongAction = QAction(QIcon(
             'resources\\SKIPICON.png'), '&Advance to the next song', self)
         self.nextSongAction.setShortcut('Ctrl+M')
         # self.nextSongAction.triggered.connect(self.test)
 
-        self.previousSongAction = QtGui.QAction(QtGui.QIcon(
+        self.previousSongAction = QAction(QIcon(
             'resources\\BACKWARDICON.png'), '&Revert to the previous song',
             self)
         self.previousSongAction.setShortcut('Ctrl+N')
@@ -209,23 +295,43 @@ class ToolBar(QtGui.QToolBar):
                    'resources\VOLUMEICON.png')
 
         for i in range(3):
-            tb = QtGui.QPushButton(QtGui.QIcon(buttons[i]), None, self)
+            tb = QPushButton(QIcon(buttons[i]), None, self)
             tb.setCheckable(True)
             tb.setFocusPolicy(Qt.NoFocus)
+
             if i == 0:
+
                 self.layoutGrid.addWidget(tb, 1, 1)
+                tb.toggled.connect(self.shuffle_toggle)
+
                 tb.setMinimumHeight(50)
             elif i == 1:
+
                 self.layoutGrid.addWidget(tb, 1, 2)
                 tb.setMinimumHeight(50)
+
             else:
+
                 self.layoutGrid.addWidget(tb, 2, 1, 2, 2)
+                tb.toggled.connect(self.mute_volume)
+                tb.setMinimumHeight(40)
+
             self.toolbarButtons.append(tb)
 
         self.volumeSlider.setFocusPolicy(Qt.NoFocus)
+        self.volumeSlider.setMinimumWidth(50)
         self.volumeSlider.setStyleSheet("""
-        .QSlider:vertical {
-        min-width: 40px;
+        .QSlider::groove:vertical {
+        background: white;
+        position: absolute;
+        left: 4px; right: 4px;
+        }
+
+        .QSlider::handle:vertical {
+        border: 1px solid #5c5c5c;
+        background: black;
+        height: 30px;
+        margin: 0 -4px; /* expand outside the groove */
         }
         """)
         self.volumeSlider.valueChanged.connect(self.volume_update)
@@ -236,12 +342,39 @@ class ToolBar(QtGui.QToolBar):
 
         self.layoutWidget.setLayout(self.layoutGrid)
 
+    def shuffle_toggle(self):
+
+        self.toolbar_parent.MediaPlayer.media_queue.clear()
+        self.toolbar_parent.MediaPlayer.update_queue()
+
     def volume_update(self):
+
+        if self.toolbar_parent.MediaPlayer.mediaPlayerObj.audio_get_mute:
+
+            self.toolbarButtons[5].setChecked(False)
+            self.mute_volume(False)
+
         new_volume = self.volumeSlider.value()
-        MediaPlayer.mediaPlayerObj.audio_set_volume(new_volume)
+        self.toolbar_parent.MediaPlayer.mediaPlayerObj.audio_set_volume(new_volume)
+
+        self.volumeLabel.setText(str(new_volume) + '%')
+
+    def mute_volume(self, value):
+
+            self.toolbar_parent.MediaPlayer.mediaPlayerObj.audio_set_mute(value)
+
+            if value:
+
+                self.toolbarButtons[5].setIcon(QIcon('resources/VOLUMEICONMUTED'))
+                self.volumeLabel.setText(str(self.volumeSlider.value()) + '%\nMUTE')
+
+            else:
+
+                self.toolbarButtons[5].setIcon(QIcon('resources/VOLUMEICON'))
+                self.volumeLabel.setText(str(self.volumeSlider.value()) + '%')
 
 
-class PopUps(QtGui.QWidget):
+class PopUps(QWidget):
 
     def __init__(self, main_window):
 
@@ -251,32 +384,32 @@ class PopUps(QtGui.QWidget):
 
         self.resize(1024, 600)
 
-        self.fileBrowser = QtGui.QWidget()
-        self.browser_path_label = QtGui.QLabel('C:/')
-        self.right_list = QtGui.QListWidget()
-        self.left_list = QtGui.QListWidget()
+        self.fileBrowser = QWidget()
+        self.browser_path_label = QLabel('C:/')
+        self.right_list = QListWidget()
+        self.left_list = QListWidget()
         self.current_path =[]
         self.selected_path = None
 
         self.create_filebrowser()
 
-        self.dialogBox = QtGui.QWidget()
-        self.dialogLabel = QtGui.QLabel('NULL')
-        self.dialogImage = QtGui.QLabel()
+        self.dialogBox = QWidget()
+        self.dialogLabel = QLabel('NULL')
+        self.dialogImage = QLabel()
 
         self.create_dialog()
 
-        self.dialogLayout = QtGui.QHBoxLayout()
+        self.dialogLayout = QHBoxLayout()
         self.dialogLayout.addWidget(self.dialogBox, 0, Qt.AlignCenter)
 
-        self.dialogWidget = QtGui.QWidget()
+        self.dialogWidget = QWidget()
         self.dialogWidget.setLayout(self.dialogLayout)
 
-        self.popups = QtGui.QStackedWidget(self)
+        self.popups = QStackedWidget(self)
         self.popups.addWidget(self.fileBrowser)
         self.popups.addWidget(self.dialogWidget)
 
-        center_layout = QtGui.QGridLayout()
+        center_layout = QGridLayout()
         center_layout.setColumnStretch(0, 1)
         center_layout.setColumnStretch(2, 1)
         center_layout.setRowStretch(0, 1)
@@ -287,29 +420,29 @@ class PopUps(QtGui.QWidget):
 
     def create_filebrowser(self):
 
-        browser_v_box = QtGui.QVBoxLayout()
+        browser_v_box = QVBoxLayout()
 
-        browser_top = QtGui.QHBoxLayout()
+        browser_top = QHBoxLayout()
 
-        label_font = QtGui.QFont('impact', 12)
+        label_font = QFont('impact', 12)
 
         self.browser_path_label.setFont(label_font)
         self.browser_path_label.setAlignment(Qt.AlignCenter)
 
-        browser_lists = QtGui.QHBoxLayout()
+        browser_lists = QHBoxLayout()
 
-        browser_buttons = QtGui.QHBoxLayout()
+        browser_buttons = QHBoxLayout()
 
-        label = QtGui.QLabel('Browse')
+        label = QLabel('Browse')
         label.setFont(label_font)
 
-        list_font = QtGui.QFont('Cambria', 20)
+        list_font = QFont('Cambria', 20)
 
-        exit_icon = QtGui.QPushButton(QtGui.QIcon('resources/EXITICON.png'), None)
+        exit_icon = QPushButton(QIcon('resources/EXITICON.png'), None)
         exit_icon.setMaximumSize(50, 50)
         exit_icon.clicked.connect(self.close_popup)
 
-        space_label = QtGui.QLabel()
+        space_label = QLabel()
 
         browser_top.addWidget(space_label)
         browser_top.addWidget(label)
@@ -321,6 +454,10 @@ class PopUps(QtGui.QWidget):
         self.right_list.setFont(list_font)
         self.right_list.setMinimumWidth(500)
 
+        QScroller.grabGesture(
+            self.right_list, QScroller.LeftMouseButtonGesture
+        )
+
         buttons = ('Back', 'Open', 'Select Folder', 'Cancel')
 
         button_icons = ('resources/FOLDEROUTICON.png', 'resources/FOLDERINICON.png', 'resources/SELECTICON.png', 'resources/EXITICON.png')
@@ -330,8 +467,8 @@ class PopUps(QtGui.QWidget):
         browser_buttons.addStretch(1)
 
         for i in range(4):
-            button = QtGui.QPushButton(buttons[i])
-            button.setIcon(QtGui.QIcon(button_icons[i]))
+            button = QPushButton(buttons[i])
+            button.setIcon(QIcon(button_icons[i]))
             button.setIconSize(QSize(40, 40))
             button.setFocusPolicy(Qt.NoFocus)
             button.setMinimumSize(100, 50)
@@ -351,8 +488,8 @@ class PopUps(QtGui.QWidget):
         browser_v_box.addLayout(browser_lists)
         browser_v_box.addLayout(browser_buttons)
 
-        palette = QtGui.QPalette()
-        palette.setColor(QtGui.QPalette.Background, QtCore.Qt.lightGray)
+        palette = QPalette()
+        palette.setColor(QPalette.Background, QtCore.Qt.lightGray)
 
         self.fileBrowser.setPalette(palette)
         self.fileBrowser.setAutoFillBackground(True)
@@ -387,8 +524,9 @@ class PopUps(QtGui.QWidget):
 
         else:
 
-            self.selected_path = os.path.join('C:/', *self.current_path,
-                                              self.right_list.currentItem().data(0))
+            self.selected_path = os.path.join('C:/', *self.current_path, self.right_list.currentItem().data(0))
+
+        self.parent().mainWidget.load_music(self.selected_path)
 
         print(self.selected_path)
         self.close_popup()
@@ -396,14 +534,14 @@ class PopUps(QtGui.QWidget):
     def update_lists(self, path, mode):
 
         self.right_list.clear()
-        self.browser_path_label.setText(os.path.join('C:/', *self.current_path))
+        self.browser_path_label.setText(os.path.join('C:\\', *self.current_path))
 
         if mode:
 
             items = next(os.walk(path))[1]
             for i in items:
-                list_item = QtGui.QListWidgetItem(self.right_list)
-                list_item.setIcon(QtGui.QIcon('resources/FOLDERICON.png'))
+                list_item = QListWidgetItem(self.right_list)
+                list_item.setIcon(QIcon('resources/FOLDERICON.png'))
                 list_item.setData(0, i)
                 list_item.setSizeHint(QSize(300, 40))
 
@@ -416,22 +554,22 @@ class PopUps(QtGui.QWidget):
         self.dialogBox.setMinimumSize(256, 150)
         self.dialogBox.setMaximumSize(256, 150)
 
-        palette = QtGui.QPalette()
-        palette.setColor(QtGui.QPalette.Background, QtCore.Qt.lightGray)
+        palette = QPalette()
+        palette.setColor(QPalette.Background, QtCore.Qt.lightGray)
         self.dialogBox.setPalette(palette)
 
-        dialog_layout = QtGui.QGridLayout()
+        dialog_layout = QGridLayout()
 
-        exit_icon = QtGui.QPushButton(QtGui.QIcon('resources/EXITICON.png'), None)
+        exit_icon = QPushButton(QIcon('resources/EXITICON.png'), None)
         exit_icon.clicked.connect(self.close_popup)
 
-        error_font = QtGui.QFont('impact', 12)
+        error_font = QFont('impact', 12)
 
         self.dialogLabel.setFont(error_font)
 
-        self.dialogImage.setPixmap(QtGui.QPixmap('resources/ERRORICON.png').scaled(50, 50, Qt.KeepAspectRatio))
+        self.dialogImage.setPixmap(QPixmap('resources/ERRORICON.png').scaled(50, 50, Qt.KeepAspectRatio))
 
-        button = QtGui.QPushButton('OK')
+        button = QPushButton('OK')
         button.setFont(error_font)
         button.clicked.connect(self.close_popup)
 
@@ -454,7 +592,7 @@ class PopUps(QtGui.QWidget):
         if popup == 1:
 
             self.dialogLabel.setText(text)
-            self.dialogImage.setPixmap(QtGui.QPixmap(image).scaled(50, 50, Qt.KeepAspectRatio))
+            self.dialogImage.setPixmap(QPixmap(image).scaled(50, 50, Qt.KeepAspectRatio))
 
         elif popup == 0:
 
@@ -471,12 +609,20 @@ class PopUps(QtGui.QWidget):
 
 class MediaClass:
 
-    def __init__(self):
+    def __init__(self, parent):
+
+        self.localMainWidget = parent.mainWidget
+        self.localParent = parent
+        self.advance_song = False
 
         # Create VLC Media Player Instance
         self.mediaInstance = vlc.Instance()
         self.mediaPlayerObj = self.mediaInstance.media_player_new()
-        self.mediaMetaData = []
+        vlc_events = self.mediaPlayerObj.event_manager()
+        vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached, self._next_song)
+
+        # Create the queue list
+        self.media_queue = []
 
     def control_media(self, media_action=0, media_type=0, media_location=None):
 
@@ -488,29 +634,89 @@ class MediaClass:
         if media_action == 0:
             if media_type == 0:
                 media = self.mediaInstance.media_new(media_location)
-                media.parse()
-                self.mediaMetaData.clear()
-                self.mediaMetaData.append(vlc.libvlc_media_get_meta(media, vlc.Meta(0)))
-                self.mediaMetaData.append(vlc.libvlc_media_get_meta(media, vlc.Meta(1)))
-                self.mediaMetaData.append(vlc.libvlc_media_get_meta(media, vlc.Meta(2)))
-                self.mediaMetaData.append(vlc.libvlc_media_get_meta(media, vlc.Meta(4)))
             elif media_type == 1:
                 media = self.mediaInstance.media_new("cdda:///H:/", (":cdda-track=" + str(media_location)))
             self.mediaPlayerObj.set_media(media)
             self.mediaPlayerObj.play()
-            GUI.controlBar.playPauseAction.setIcon(QtGui.QIcon(
+            GUI.controlBar.playPauseAction.setIcon(QIcon(
                 'resources\\PAUSEICON.png'))
         elif media_action == 1:
             self.mediaPlayerObj.pause()
             if self.mediaPlayerObj.is_playing():
-                GUI.controlBar.playPauseAction.setIcon(QtGui.QIcon(
+                GUI.controlBar.playPauseAction.setIcon(QIcon(
                     'resources\\PLAYICON.png'))
             else:
-                GUI.controlBar.playPauseAction.setIcon(QtGui.QIcon(
+                GUI.controlBar.playPauseAction.setIcon(QIcon(
                     'resources\\PAUSEICON.png'))
 
-app = QtGui.QApplication(sys.argv)
+    def _next_song(self, event):
+
+        self.advance_song = True
+
+    def play_next_song(self):
+
+        next_song = self.media_queue[0]
+        self.localMainWidget.mediaList.clearSelection()
+        self.localMainWidget.mediaList.setRangeSelected(
+            QTableWidgetSelectionRange(next_song, 0, next_song, 3), True)
+        self.media_queue.pop(0)
+        self.update_queue()
+        self.control_media(
+            0, 0, self.localMainWidget.mediaList.item(next_song, 0).data(1)
+        )
+
+    def update_queue(self):
+
+        selection = None
+
+        selected_indexes = self.localMainWidget.mediaList.selectedIndexes()
+        if len(selected_indexes) == 0:
+
+            selected_index = -1
+        else:
+
+            selected_index = selected_indexes[0].row()
+
+        row_count = self.localMainWidget.mediaList.rowCount() - 1
+
+        for i in range(5 - len(self.media_queue)):
+
+            if self.localParent.controlBar.toolbarButtons[3].isChecked():
+
+                while selection in self.media_queue or \
+                            selection == selected_index or selection is None:
+
+                    selection = random.randrange(0, self.localMainWidget.mediaList.rowCount())
+
+            else:
+
+                if len(self.media_queue) == 0:
+
+                    if selected_index == row_count:
+
+                        selection = 0
+
+                    else:
+
+                        selection = selected_index + 1
+
+                else:
+
+                    new_number = self.media_queue[len(self.media_queue) - 1] + 1
+
+                    if new_number > row_count:
+
+                        selection = 0
+
+                    else:
+
+                        selection = new_number
+
+            self.media_queue.append(selection)
+
+        print(self.media_queue)
+
+
+app = QApplication(sys.argv)
 GUI = CarGUI()
-MediaPlayer = MediaClass()
-# MediaPlayer.control_media(0, 1, 1)
 sys.exit(app.exec_())
